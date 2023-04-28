@@ -1,0 +1,41 @@
+{
+  "name": "async-to-sync",
+  "type": "module",
+  "version": "0.0.1",
+  "description": "Turns an async function into a sync function (+ a lot of callbacks and other things)",
+  "source": "src/index.ts",
+  "module": "/dist/index.js",
+  "types": "/dist/index.d.ts",
+  "packageManager": "pnpm@7.29.0",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "browser": "./dist/index.js",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "typings": "./dist/index.d.ts",
+  "scripts": {
+    "build": "npx npm-run-all --npm-path npm -pc clean build:*",
+    "watch": "npx npm-run-all --npm-path npm -pc clean watch:*",
+    "watch:ts": "tsc --watch",
+    "build:ts": "tsc",
+    "lint": "npx eslint ./src",
+    "clean": "tsc --build --clean",
+    "rebuild": "rm \"./pnpm-lock.yaml\" && rm -R \"./node_modules\" && pnpm install && pnpm run build"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/lodash-es": "^4.17.7",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.0.3"
+  },
+  "dependencies": {
+    "lodash-es": "^4.17.21"
+  },
+  "directories": {
+    "test": "tests"
+  }
+}
