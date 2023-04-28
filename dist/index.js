@@ -117,7 +117,7 @@ export function asyncToSync({ asyncInput, onInvoke, onInvoked, onFinally: onFina
         syncOutput: (...args) => {
             // 1. Someone just called the sync version of our async function.
             // 2. We capture the arguments in a way that won't become stale if/when the function is called with a (possibly seconds-long) delay (e.g. event.currentTarget.value on an <input> element).
-            currentCapture = capture?.(...args); // Intentional!? because void == undefined.
+            currentCapture = capture?.(...args) ?? [];
             onSyncDebounce?.(syncDebouncing = true);
             syncDebounced();
         },

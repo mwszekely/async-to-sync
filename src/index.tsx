@@ -296,7 +296,7 @@ export function asyncToSync<AsyncArgs extends any[], SyncArgs extends any[], Ret
         syncOutput: (...args: SyncArgs) => {
             // 1. Someone just called the sync version of our async function.
             // 2. We capture the arguments in a way that won't become stale if/when the function is called with a (possibly seconds-long) delay (e.g. event.currentTarget.value on an <input> element).
-            currentCapture = capture!?.(...args);   // Intentional!? because void == undefined.
+            currentCapture = capture?.(...args) ?? ([] as any[] as AsyncArgs);
             onSyncDebounce?.(syncDebouncing = true);
             syncDebounced();
         },

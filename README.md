@@ -2,4 +2,6 @@ A small Typescript library that lets you take an `async` function and, with a lo
 
 Even if you don't care about all the callbacks (like `onFulfilled`), `asyncToSync` only allows one call at a time (if another call happens, it's delayed until the first finishes). The only required arguments are `asyncInput` (and `capture` for `input` elements). 
 
+This was originally part of `preact-prop-helpers`, but it's useful outside of that too.
+
 This library is unlicensed into the public domain.
