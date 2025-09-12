@@ -1,7 +1,8 @@
 import { debounce as LodashDebounce } from "lodash-es";
 function isPromise(p) {
-    return p instanceof Promise;
+    return p && "then" in p;
 }
+function defaultCapture(args) { return args; }
 const Unset = Symbol("Unset");
 /**
  * lodash-ish function that's like debounce + (throttle w/ async handling) combined.
@@ -12,11 +13,12 @@ const Unset = Symbol("Unset");
  *
  * The comments are numbered in approximate execution order for your reading pleasure (1 is near the bottom).
  */
-export function asyncToSync({ asyncInput, onInvoke, onInvoked, onFinally: onFinallyAny, onReject, onResolve, onHasError, onHasResult, onError, onReturnValue, capture, onAsyncDebounce, onSyncDebounce, onPending, throttle, wait }) {
+export function asyncToSync({ asyncInput, onInvoke, onInvoked, onFinally: onFinallyAny, onReject, onResolve, onHasError, onHasResult, onError, onReturnValue, capture, onAsyncDebounce, onSyncDebounce, onPending, throttle, debounce: wait }) {
     let pending = false;
     let syncDebouncing = false;
     let asyncDebouncing = false;
     let currentCapture = Unset;
+    capture ??= defaultCapture;
     const onFinally = () => {
         // 8. This is run at the end of every invocation of the async handler,
         // whether it completed or not, and whether it was async or not.
@@ -65,8 +67,8 @@ export function asyncToSync({ asyncInput, onInvoke, onInvoked, onFinally: onFina
         if (isPromise(promiseOrReturn)) {
             onInvoked?.("async");
             promiseOrReturn
-                .then(r => { onResolve?.(); onHasResult?.(true); onReturnValue?.(r); return r; })
-                .catch(e => { onReject?.(); onHasError?.(true); onError?.(e); return e; })
+                .then(r => { onResolve?.(); onHasResult?.(true, r); onReturnValue?.(r); return r; })
+                .catch(e => { onReject?.(); onHasError?.(true, e); onError?.(e); return e; })
                 .finally(onFinally);
         }
         else {
@@ -75,13 +77,13 @@ export function asyncToSync({ asyncInput, onInvoke, onInvoked, onFinally: onFina
                 onResolve?.();
                 onHasResult?.(true);
                 onHasError?.(false);
+                onReturnValue?.(promiseOrReturn);
             }
             else {
                 onReject?.();
                 onHasResult?.(false);
                 onHasError?.(true);
             }
-            onReturnValue?.(promiseOrReturn);
             onPending?.(pending = false);
             onFinally();
         }

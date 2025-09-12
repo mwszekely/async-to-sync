@@ -23,12 +23,13 @@ export interface AsyncToSyncParameters<AsyncArgs extends any[], SyncArgs extends
     /**
      * When the *sync handler is invoked* (even if the async handler doesn't run yet), this is set to `true`.
      * 
-     * When the debounce period, as specified by either `wait` or `throttle`, as ended, this is set to `false.
+     * When the debounce period, as specified by either `wait` or `throttle`, has ended, this is set to `false.
      * 
      * This is the same even when not using `wait` or `throttle`. In this case, `onSyncDebounce` will be called twice on the same frame.
      * @param debouncing 
      */
     onSyncDebounce?(debouncing: boolean): void;
+
     /**
      * When the async handler is about to start running (after debouncing and throttling have finished), 
      * but must wait for another in-process handler to finish, this is set to `true`.
@@ -38,6 +39,7 @@ export interface AsyncToSyncParameters<AsyncArgs extends any[], SyncArgs extends
      * @param debouncing 
      */
     onAsyncDebounce?(debouncing: boolean): void;
+
     /**
      * When the handler returns, its return value will be passed to this function (after awaiting it if necessary).
      * 
@@ -121,27 +123,29 @@ export interface AsyncToSyncParameters<AsyncArgs extends any[], SyncArgs extends
     /**
      * Identical to Lodash's `debounce` function, applying *before* waiting for any prior async handlers to finish.
      */
-    wait?: number | undefined;
+    debounce?: number | undefined;
 
     /**
      * When the handler is about to run, this is called with `null`.
      * 
-     * If the handler throws, then this will be called with `true`. If it resolves, this will be called with `false`.
+     * If the handler throws, then this will be called with `true`, and whatever was thrown will be passed as the second argument. 
+     * If it resolves, this will be called with `false`.
      * 
      * This is the same for sync and async functions; 
      * sync functions will result in this function being called twice in one frame.
      */
-    onHasError?(hasError: boolean | null): void;
+    onHasError?(hasError: boolean | null, error?: unknown): void;
 
     /**
      * When the handler is about to run, this is called with `null`.
      * 
-     * If the handler resolves successfully, then this will be called with `true`. If it throws, this will be called with `false`.
+     * If the handler resolves successfully, then this will be called with `true`, and whatever was returned will be passed as the second argument. 
+     * If it throws, this will be called with `false`.
      * 
      * This is the same for sync and async functions; 
      * sync functions will result in this function being called twice in one frame.
      */
-    onHasResult?(hasResult: boolean | null): void;
+    onHasResult?(hasResult: boolean | null, result?: Return): void;
 }
 
 export interface AsyncToSyncReturn<SyncArgs extends any[]> {
@@ -168,8 +172,10 @@ export interface AsyncToSyncReturn<SyncArgs extends any[]> {
 }
 
 function isPromise<T>(p: T | Promise<T>): p is Promise<T> {
-    return p instanceof Promise;
+    return p && "then" in (p as {});
 }
+
+function defaultCapture<AsyncArgs extends any[], SyncArgs extends any[]>(args: AsyncArgs): SyncArgs { return args as unknown as SyncArgs; }
 
 const Unset = Symbol("Unset");
 
@@ -182,11 +188,12 @@ const Unset = Symbol("Unset");
  * 
  * The comments are numbered in approximate execution order for your reading pleasure (1 is near the bottom).
  */
-export function asyncToSync<AsyncArgs extends any[], SyncArgs extends any[], Return>({ asyncInput, onInvoke, onInvoked, onFinally: onFinallyAny, onReject, onResolve, onHasError, onHasResult, onError, onReturnValue, capture, onAsyncDebounce, onSyncDebounce, onPending, throttle, wait }: AsyncToSyncParameters<AsyncArgs, SyncArgs, Return>): AsyncToSyncReturn<SyncArgs> {
+export function asyncToSync<AsyncArgs extends any[], SyncArgs extends any[], Return>({ asyncInput, onInvoke, onInvoked, onFinally: onFinallyAny, onReject, onResolve, onHasError, onHasResult, onError, onReturnValue, capture, onAsyncDebounce, onSyncDebounce, onPending, throttle, debounce: wait }: AsyncToSyncParameters<AsyncArgs, SyncArgs, Return>): AsyncToSyncReturn<SyncArgs> {
     let pending = false;
     let syncDebouncing = false;
     let asyncDebouncing = false;
     let currentCapture: AsyncArgs | typeof Unset = Unset;
+    capture ??= defaultCapture as NonNullable<typeof capture>;
 
     const onFinally = () => {
 
@@ -242,8 +249,8 @@ export function asyncToSync<AsyncArgs extends any[], SyncArgs extends any[], Ret
         if (isPromise(promiseOrReturn)) {
             onInvoked?.("async");
             promiseOrReturn
-                .then(r => { onResolve?.(); onHasResult?.(true); onReturnValue?.(r); return r; })
-                .catch(e => { onReject?.(); onHasError?.(true); onError?.(e); return e; })
+                .then(r => { onResolve?.(); onHasResult?.(true, r); onReturnValue?.(r); return r; })
+                .catch(e => { onReject?.(); onHasError?.(true, e); onError?.(e); return e; })
                 .finally(onFinally);
         }
         else {
@@ -252,13 +259,13 @@ export function asyncToSync<AsyncArgs extends any[], SyncArgs extends any[], Ret
                 onResolve?.();
                 onHasResult?.(true);
                 onHasError?.(false);
+                onReturnValue?.(promiseOrReturn as Return);
             }
             else {
                 onReject?.();
                 onHasResult?.(false);
                 onHasError?.(true);
             }
-            onReturnValue?.(promiseOrReturn as Return);
             onPending?.(pending = false);
             onFinally();
         }
