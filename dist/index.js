@@ -2,7 +2,7 @@ import { debounce as LodashDebounce } from "lodash-es";
 function isPromise(p) {
     return p && "then" in p;
 }
-function defaultCapture(args) { return args; }
+function defaultCapture(...args) { return args; }
 const Unset = Symbol("Unset");
 /**
  * lodash-ish function that's like debounce + (throttle w/ async handling) combined.

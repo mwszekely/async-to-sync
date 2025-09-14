@@ -175,7 +175,7 @@ function isPromise<T>(p: T | Promise<T>): p is Promise<T> {
     return p && "then" in (p as {});
 }
 
-function defaultCapture<AsyncArgs extends any[], SyncArgs extends any[]>(args: AsyncArgs): SyncArgs { return args as unknown as SyncArgs; }
+function defaultCapture<AsyncArgs extends any[], SyncArgs extends any[]>(...args: AsyncArgs): SyncArgs { return args as unknown[] as SyncArgs; }
 
 const Unset = Symbol("Unset");
 
