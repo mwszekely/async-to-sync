@@ -5,7 +5,7 @@ export type CaptureFunctionType<AP extends unknown[], SP extends unknown[] = AP>
 
 
 
-export interface AsyncToSyncParameters<AsyncArgs extends any[], SyncArgs extends any[], Return> {
+export interface AsyncToSyncParameters<ReturnType, AsyncArgs extends any[], SyncArgs extends any[] = AsyncArgs> {
     /**
      * The function to create a sync version of.
      * 
@@ -14,7 +14,7 @@ export interface AsyncToSyncParameters<AsyncArgs extends any[], SyncArgs extends
      * be returned. If called, it simply returns immediately, and will
      * not invoke any of the callbacks or run any additional logic.
      */
-    asyncInput: ((...args: AsyncArgs) => (Return | Promise<Return>)) | null | undefined;
+    asyncInput: ((...args: AsyncArgs) => (ReturnType | Promise<ReturnType>)) | null | undefined;
 
     /**
      * When the function starts running, this is set to true.
@@ -53,7 +53,7 @@ export interface AsyncToSyncParameters<AsyncArgs extends any[], SyncArgs extends
      * This value is not reset at any time! See `setHasReturn` to determine if there is a value at any given time.
      * @param ret 
      */
-    onReturnValue?: ((ret: Return) => void) | null | undefined;
+    onReturnValue?: ((ret: ReturnType) => void) | null | undefined;
 
     /**
      * When the handler `throw`s, the value thrown will be passed to this function.
@@ -113,10 +113,11 @@ export interface AsyncToSyncParameters<AsyncArgs extends any[], SyncArgs extends
      * To prevent this "stale argument" problem, you can capture the useful parts
      * of whatever the async function's arguments are into an object that's not live.
      * 
-     * `capture` will be called with the arguments your sync handler takes, 
-     * and should return the arguments your async handler takes as an array.
+     * For example, `e => ([e, e.currentTarget.value])`
      * 
-     * For example, `e => [e, e.currentTarget.value]`
+     * Remember that even if your async function only takes a single argument,
+     * the return value of `capture` **must be an array** 
+     * (specifically the array of arguments passed to your async function).
      */
     capture?: CaptureFunctionType<AsyncArgs, SyncArgs> | null | undefined;
 
@@ -144,13 +145,14 @@ export interface AsyncToSyncParameters<AsyncArgs extends any[], SyncArgs extends
     /**
      * When the handler is about to run, this is called with `null`.
      * 
-     * If the handler resolves successfully, then this will be called with `true`, and whatever was returned will be passed as the second argument. 
+     * If the handler resolves successfully, then this will be called with `true`, 
+     * and whatever was returned will be passed as the second argument. 
      * If it throws, this will be called with `false`.
      * 
      * This is the same for sync and async functions; 
      * sync functions will result in this function being called twice in one frame.
      */
-    onHasResult?: ((hasResult: boolean | null, result?: Return) => void) | null | undefined;
+    onHasResult?: ((hasResult: boolean | null, result?: ReturnType) => void) | null | undefined;
 }
 
 export interface AsyncToSyncReturn<SyncArgs extends any[]> {
@@ -160,6 +162,7 @@ export interface AsyncToSyncReturn<SyncArgs extends any[]> {
      * It doesn't return a value (because it can't in case the handler was async).
      */
     syncOutput: (...args: SyncArgs) => void;
+
     /**
      * If there are currently any handlers in wait because they are throttled or debounced
      * (not from being async, but from the `throttle` or `debounce` settings),
@@ -177,7 +180,7 @@ export interface AsyncToSyncReturn<SyncArgs extends any[]> {
 }
 
 function isPromise<T>(p: T | Promise<T>): p is Promise<T> {
-    return p && "then" in (p as {});
+    return p && typeof p == 'object' && "then" in (p as {});
 }
 
 function defaultCapture<AsyncArgs extends any[], SyncArgs extends any[]>(...args: AsyncArgs): SyncArgs { return args as unknown[] as SyncArgs; }
@@ -191,9 +194,15 @@ const Unset = Symbol("Unset");
  * Note that part of this is emulating the fact that the sync handler cannot have a return value,
  * so you'll need to use `setResolve` and the other related functions to do that in whatever way works for your specific scenario.
  * 
- * The comments are numbered in approximate execution order for your reading pleasure (1 is near the bottom).
+ * @type `ReturnType` The type that your async function returns (may or may not be wrapped in a `Promise<>`)
+ * @type `AsyncArgs` The arguments that your async function takes (as an array)
+ * @type `SyncArgs` The arguments that the returned sync function takes (as an array). Defaults to the same type as `AsyncArgs`.
  */
-export function asyncToSync<AsyncArgs extends any[], SyncArgs extends any[], Return>({ asyncInput, onInvoke, onInvoked, onFinally: onFinallyAny, onReject, onResolve, onHasError, onHasResult, onError, onReturnValue, capture, onAsyncDebounce, onSyncDebounce, onPending, throttle, debounce: wait }: AsyncToSyncParameters<AsyncArgs, SyncArgs, Return>): AsyncToSyncReturn<SyncArgs> {
+export function asyncToSync<ReturnType, AsyncArgs extends any[], SyncArgs extends any[] = AsyncArgs>({ asyncInput, onInvoke, onInvoked, onFinally: onFinallyAny, onReject, onResolve, onHasError, onHasResult, onError, onReturnValue, capture, onAsyncDebounce, onSyncDebounce, onPending, throttle, debounce: wait }: AsyncToSyncParameters<ReturnType, AsyncArgs, SyncArgs>): AsyncToSyncReturn<SyncArgs> {
+   
+    // 0. The comments are numbered in approximate execution order 
+    // for your reading pleasure (1 is near the bottom).
+
     let pending = false;
     let syncDebouncing = false;
     let asyncDebouncing = false;
@@ -233,7 +242,7 @@ export function asyncToSync<AsyncArgs extends any[], SyncArgs extends any[], Ret
         console.assert(syncDebouncing == false);
         onHasError?.(null);
         onHasResult?.(null);
-        let promiseOrReturn: Promise<Return> | Return | undefined;
+        let promiseOrReturn: Promise<ReturnType> | ReturnType | undefined;
 
         let hadSyncError = false;
         try {
@@ -264,7 +273,7 @@ export function asyncToSync<AsyncArgs extends any[], SyncArgs extends any[], Ret
                 onResolve?.();
                 onHasResult?.(true);
                 onHasError?.(false);
-                onReturnValue?.(promiseOrReturn as Return);
+                onReturnValue?.(promiseOrReturn!);  // The ! assertion is safe here because it's only undefined if ReturnType includes undefined already.
             }
             else {
                 onReject?.();

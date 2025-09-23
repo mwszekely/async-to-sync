@@ -1,5 +1,5 @@
 export type CaptureFunctionType<AP extends unknown[], SP extends unknown[] = AP> = (...args: SP) => AP;
-export interface AsyncToSyncParameters<AsyncArgs extends any[], SyncArgs extends any[], Return> {
+export interface AsyncToSyncParameters<ReturnType, AsyncArgs extends any[], SyncArgs extends any[] = AsyncArgs> {
     /**
      * The function to create a sync version of.
      *
@@ -8,7 +8,7 @@ export interface AsyncToSyncParameters<AsyncArgs extends any[], SyncArgs extends
      * be returned. If called, it simply returns immediately, and will
      * not invoke any of the callbacks or run any additional logic.
      */
-    asyncInput: ((...args: AsyncArgs) => (Return | Promise<Return>)) | null | undefined;
+    asyncInput: ((...args: AsyncArgs) => (ReturnType | Promise<ReturnType>)) | null | undefined;
     /**
      * When the function starts running, this is set to true.
      * When it stops running, this is set to false.
@@ -43,7 +43,7 @@ export interface AsyncToSyncParameters<AsyncArgs extends any[], SyncArgs extends
      * This value is not reset at any time! See `setHasReturn` to determine if there is a value at any given time.
      * @param ret
      */
-    onReturnValue?: ((ret: Return) => void) | null | undefined;
+    onReturnValue?: ((ret: ReturnType) => void) | null | undefined;
     /**
      * When the handler `throw`s, the value thrown will be passed to this function.
      *
@@ -96,10 +96,11 @@ export interface AsyncToSyncParameters<AsyncArgs extends any[], SyncArgs extends
      * To prevent this "stale argument" problem, you can capture the useful parts
      * of whatever the async function's arguments are into an object that's not live.
      *
-     * `capture` will be called with the arguments your sync handler takes,
-     * and should return the arguments your async handler takes as an array.
+     * For example, `e => ([e, e.currentTarget.value])`
      *
-     * For example, `e => [e, e.currentTarget.value]`
+     * Remember that even if your async function only takes a single argument,
+     * the return value of `capture` **must be an array**
+     * (specifically the array of arguments passed to your async function).
      */
     capture?: CaptureFunctionType<AsyncArgs, SyncArgs> | null | undefined;
     /**
@@ -123,13 +124,14 @@ export interface AsyncToSyncParameters<AsyncArgs extends any[], SyncArgs extends
     /**
      * When the handler is about to run, this is called with `null`.
      *
-     * If the handler resolves successfully, then this will be called with `true`, and whatever was returned will be passed as the second argument.
+     * If the handler resolves successfully, then this will be called with `true`,
+     * and whatever was returned will be passed as the second argument.
      * If it throws, this will be called with `false`.
      *
      * This is the same for sync and async functions;
      * sync functions will result in this function being called twice in one frame.
      */
-    onHasResult?: ((hasResult: boolean | null, result?: Return) => void) | null | undefined;
+    onHasResult?: ((hasResult: boolean | null, result?: ReturnType) => void) | null | undefined;
 }
 export interface AsyncToSyncReturn<SyncArgs extends any[]> {
     /**
@@ -159,7 +161,9 @@ export interface AsyncToSyncReturn<SyncArgs extends any[]> {
  * Note that part of this is emulating the fact that the sync handler cannot have a return value,
  * so you'll need to use `setResolve` and the other related functions to do that in whatever way works for your specific scenario.
  *
- * The comments are numbered in approximate execution order for your reading pleasure (1 is near the bottom).
+ * @type `ReturnType` The type that your async function returns (may or may not be wrapped in a `Promise<>`)
+ * @type `AsyncArgs` The arguments that your async function takes (as an array)
+ * @type `SyncArgs` The arguments that the returned sync function takes (as an array). Defaults to the same type as `AsyncArgs`.
  */
-export declare function asyncToSync<AsyncArgs extends any[], SyncArgs extends any[], Return>({ asyncInput, onInvoke, onInvoked, onFinally: onFinallyAny, onReject, onResolve, onHasError, onHasResult, onError, onReturnValue, capture, onAsyncDebounce, onSyncDebounce, onPending, throttle, debounce: wait }: AsyncToSyncParameters<AsyncArgs, SyncArgs, Return>): AsyncToSyncReturn<SyncArgs>;
+export declare function asyncToSync<ReturnType, AsyncArgs extends any[], SyncArgs extends any[] = AsyncArgs>({ asyncInput, onInvoke, onInvoked, onFinally: onFinallyAny, onReject, onResolve, onHasError, onHasResult, onError, onReturnValue, capture, onAsyncDebounce, onSyncDebounce, onPending, throttle, debounce: wait }: AsyncToSyncParameters<ReturnType, AsyncArgs, SyncArgs>): AsyncToSyncReturn<SyncArgs>;
 //# sourceMappingURL=index.d.ts.map

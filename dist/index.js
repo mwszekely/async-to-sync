@@ -1,6 +1,6 @@
 import { debounce as LodashDebounce } from "lodash-es";
 function isPromise(p) {
-    return p && "then" in p;
+    return p && typeof p == 'object' && "then" in p;
 }
 function defaultCapture(...args) { return args; }
 const Unset = Symbol("Unset");
@@ -11,9 +11,13 @@ const Unset = Symbol("Unset");
  * Note that part of this is emulating the fact that the sync handler cannot have a return value,
  * so you'll need to use `setResolve` and the other related functions to do that in whatever way works for your specific scenario.
  *
- * The comments are numbered in approximate execution order for your reading pleasure (1 is near the bottom).
+ * @type `ReturnType` The type that your async function returns (may or may not be wrapped in a `Promise<>`)
+ * @type `AsyncArgs` The arguments that your async function takes (as an array)
+ * @type `SyncArgs` The arguments that the returned sync function takes (as an array). Defaults to the same type as `AsyncArgs`.
  */
 export function asyncToSync({ asyncInput, onInvoke, onInvoked, onFinally: onFinallyAny, onReject, onResolve, onHasError, onHasResult, onError, onReturnValue, capture, onAsyncDebounce, onSyncDebounce, onPending, throttle, debounce: wait }) {
+    // 0. The comments are numbered in approximate execution order 
+    // for your reading pleasure (1 is near the bottom).
     let pending = false;
     let syncDebouncing = false;
     let asyncDebouncing = false;
@@ -77,7 +81,7 @@ export function asyncToSync({ asyncInput, onInvoke, onInvoked, onFinally: onFina
                 onResolve?.();
                 onHasResult?.(true);
                 onHasError?.(false);
-                onReturnValue?.(promiseOrReturn);
+                onReturnValue?.(promiseOrReturn); // The ! assertion is safe here because it's only undefined if ReturnType includes undefined already.
             }
             else {
                 onReject?.();
