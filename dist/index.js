@@ -55,7 +55,7 @@ export function asyncToSync({ asyncInput, onInvoke, onInvoked, onFinally: onFina
             // Because it may be sync, or it may throw before returning, we must still wrap it in a try/catch...
             // Also important is that we preserve the async-ness (or lack thereof) on the original input function.
             onInvoke?.();
-            promiseOrReturn = asyncInput(...args);
+            promiseOrReturn = asyncInput?.(...args);
             onHasError?.(false);
         }
         catch (ex) {
@@ -117,6 +117,8 @@ export function asyncToSync({ asyncInput, onInvoke, onInvoked, onFinally: onFina
     }, wait || undefined, lodashOptions);
     return {
         syncOutput: (...args) => {
+            if (asyncInput == null)
+                return;
             // 1. Someone just called the sync version of our async function.
             // 2. We capture the arguments in a way that won't become stale if/when the function is called with a (possibly seconds-long) delay (e.g. event.currentTarget.value on an <input> element).
             currentCapture = capture?.(...args) ?? [];
