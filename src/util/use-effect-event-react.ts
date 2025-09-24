@@ -7,9 +7,9 @@ export type FunctionType<Args extends unknown[], Ret> = (...args: Args) => Ret;
 // I dunno, it's been like a decade at this point and it keeps changing.
 // At any rate this isn't part of our public API, so it doesn't matter right now.
 export function useEffectEvent<Args extends unknown[], Ret>(value: FunctionType<Args, Ret>): FunctionType<Args, Ret> {
-    // This is false during render, true afterwards.
+    // This is false during the first render, true afterwards.
+    // (It's not worth an additional insertion effect for every render)
     const ready = useRef<boolean>(false);
-    ready.current = false;
 
     // Holds the actual function. Only set after rendering has finished.
     const ref = useRef<FunctionType<Args, Ret>>(undefined!);
