@@ -1,9 +1,6 @@
-import { DebounceSettings, debounce as LodashDebounce } from "lodash-es";
-
+import { throttleDebounce } from "./util/throttle-debounce.js";
 
 export type CaptureFunctionType<AP extends unknown[], SP extends unknown[] = AP> = (...args: SP) => AP;
-
-
 
 export interface AsyncToSyncParameters<ReturnType, AsyncArgs extends any[], SyncArgs extends any[] = AsyncArgs> {
     /**
@@ -28,10 +25,9 @@ export interface AsyncToSyncParameters<ReturnType, AsyncArgs extends any[], Sync
     /**
      * When the *sync handler is invoked* (even if the async handler doesn't run yet), this is set to `true`.
      * 
-     * When the debounce period, as specified by either `wait` or `throttle`, has ended, this is set to `false.
+     * When the debounce period, as specified by either `wait` or `throttle`, has ended, this is set to `false`.
      * 
      * This is the same even when not using `wait` or `throttle`. In this case, `onSyncDebounce` will be called twice on the same frame.
-     * @param debouncing 
      */
     onSyncDebounce?: ((debouncing: boolean) => void) | null | undefined;
 
@@ -40,8 +36,6 @@ export interface AsyncToSyncParameters<ReturnType, AsyncArgs extends any[], Sync
      * but must wait for another in-process handler to finish, this is set to `true`.
      * 
      * When the handler finishes (regardless of if it was sync or async), this is set to `false`.
-     * 
-     * @param debouncing 
      */
     onAsyncDebounce?: ((debouncing: boolean) => void) | null | undefined;
 
@@ -50,7 +44,7 @@ export interface AsyncToSyncParameters<ReturnType, AsyncArgs extends any[], Sync
      * 
      * Even if the handler does not return anything, this will still be called (with `undefined`)
      * 
-     * This value is not reset at any time! See `setHasReturn` to determine if there is a value at any given time.
+     * This value is not reset at any time! See `onHasResult` to determine if there is a value at any given time.
      * @param ret 
      */
     onReturnValue?: ((ret: ReturnType) => void) | null | undefined;
@@ -58,14 +52,15 @@ export interface AsyncToSyncParameters<ReturnType, AsyncArgs extends any[], Sync
     /**
      * When the handler `throw`s, the value thrown will be passed to this function.
      * 
-     * This value is not reset at any time! See `setHasError` to determine if there is a value at any given time.
+     * This value is not reset at any time! See `onHasError` to determine if there is a value at any given time.
      * 
      * @param ex 
      */
     onError?: ((ex: unknown) => void) | null | undefined;
 
     /**
-     * Immediately before the handler will be called (after all methods of debouncing and throttling and such)
+     * Immediately before the handler will be called 
+     * (after all methods of debouncing and throttling and such)
      * this is always called once.
      * 
      * @see onInvoked (called immediately after instead)
@@ -122,12 +117,16 @@ export interface AsyncToSyncParameters<ReturnType, AsyncArgs extends any[], Sync
     capture?: CaptureFunctionType<AsyncArgs, SyncArgs> | null | undefined;
 
     /**
-     * Identical to Lodash's `throttle` function, applying *before* waiting for any prior async handlers to finish.
+     * Similar to Lodash's `throttle` function.
+     * 
+     * If a positive integer, applies *before* waiting for any prior async handlers to finish.
      */
     throttle?: number | null | undefined;
 
     /**
-     * Identical to Lodash's `debounce` function, applying *before* waiting for any prior async handlers to finish.
+     * Similar to Lodash's `debounce` function.
+     * 
+     * If a positive integer, it applies *before* waiting for any prior async handlers to finish.
      */
     debounce?: number | null | undefined;
 
@@ -155,7 +154,7 @@ export interface AsyncToSyncParameters<ReturnType, AsyncArgs extends any[], Sync
     onHasResult?: ((hasResult: boolean | null, result?: ReturnType) => void) | null | undefined;
 }
 
-export interface AsyncToSyncReturn<SyncArgs extends any[]> {
+export interface AsyncToSyncReturnType<SyncArgs extends any[]> {
     /**
      * The sync version of the handler you specified.
      * 
@@ -198,8 +197,25 @@ const Unset = Symbol("Unset");
  * @type `AsyncArgs` The arguments that your async function takes (as an array)
  * @type `SyncArgs` The arguments that the returned sync function takes (as an array). Defaults to the same type as `AsyncArgs`.
  */
-export function asyncToSync<ReturnType, AsyncArgs extends any[], SyncArgs extends any[] = AsyncArgs>({ asyncInput, onInvoke, onInvoked, onFinally: onFinallyAny, onReject, onResolve, onHasError, onHasResult, onError, onReturnValue, capture, onAsyncDebounce, onSyncDebounce, onPending, throttle, debounce: wait }: AsyncToSyncParameters<ReturnType, AsyncArgs, SyncArgs>): AsyncToSyncReturn<SyncArgs> {
-   
+export function asyncToSync<ReturnType, AsyncArgs extends any[], SyncArgs extends any[] = AsyncArgs>({
+    asyncInput,
+    onInvoke,
+    onInvoked,
+    onFinally: onFinallyAny,
+    onReject,
+    onResolve,
+    onHasError,
+    onHasResult,
+    onError,
+    onReturnValue,
+    capture,
+    onAsyncDebounce,
+    onSyncDebounce,
+    onPending,
+    throttle: throttleDuration,
+    debounce: debounceDuration
+}: AsyncToSyncParameters<ReturnType, AsyncArgs, SyncArgs>): AsyncToSyncReturnType<SyncArgs> {
+
     // 0. The comments are numbered in approximate execution order 
     // for your reading pleasure (1 is near the bottom).
 
@@ -280,38 +296,28 @@ export function asyncToSync<ReturnType, AsyncArgs extends any[], SyncArgs extend
                 onHasResult?.(false);
                 onHasError?.(true);
             }
-            onPending?.(pending = false);
             onFinally();
         }
     }
 
-    // lodash uses "in" instead of checking for `undefined`...
-    const lodashOptions: DebounceSettings = {
-        leading: !wait,
-        trailing: true
-    }
-    if (throttle) {
-        if (wait == null || (wait < throttle))
-            wait = throttle;
-        lodashOptions.maxWait = throttle;
-    }
-
-    const syncDebounced = LodashDebounce(() => {
-        // 3. Instead of calling the sync version of our function directly, we allow it to be throttled/debounced (above)
-        // and now that we're done throttling/debouncing, notify anyone who cares of this fact (below).
-        onSyncDebounce?.(syncDebouncing = false);
-        if (!pending) {
-            // 4a. If this is the first invocation, or if we're not still waiting for a previous invocation to finish its async call,
-            // then we can just go ahead and run the debounced version of our function.
-            console.assert(currentCapture != Unset);
-            sync(...(currentCapture as AsyncArgs));
-        } else {
-            // 4b. If we were called while still waiting for the (or a) previous invocation to finish,
-            // then we'll need to delay this one. When that previous invocation finishes, it'll check
-            // to see if it needs to run again, and it will use these new captured arguments from step 2.
-            onAsyncDebounce?.(asyncDebouncing = true);
-        }
-    }, wait || undefined, lodashOptions);
+    const { handlerOut: syncDebounced, cancel: syncCancel, flush: syncFlush } = throttleDebounce({
+        handlerIn: () => {
+            // 3. Instead of calling the sync version of our function directly, we allow it to be throttled/debounced (above)
+            // and now that we're done throttling/debouncing, notify anyone who cares of this fact (below).
+            onSyncDebounce?.(syncDebouncing = false);
+            if (!pending) {
+                // 4a. If this is the first invocation, or if we're not still waiting for a previous invocation to finish its async call,
+                // then we can just go ahead and run the debounced version of our function.
+                console.assert(currentCapture != Unset);
+                sync(...(currentCapture as AsyncArgs));
+            } else {
+                // 4b. If we were called while still waiting for the (or a) previous invocation to finish,
+                // then we'll need to delay this one. When that previous invocation finishes, it'll check
+                // to see if it needs to run again, and it will use these new captured arguments from step 2.
+                onAsyncDebounce?.(asyncDebouncing = true);
+            }
+        }, debounceDuration: debounceDuration, throttleDuration: throttleDuration
+    });
 
     return {
         syncOutput: (...args: SyncArgs) => {
@@ -325,10 +331,10 @@ export function asyncToSync<ReturnType, AsyncArgs extends any[], SyncArgs extend
             syncDebounced();
         },
         flushSyncDebounce: () => {
-            syncDebounced.flush();
+            syncFlush();
         },
         cancelSyncDebounce: () => {
-            syncDebounced.cancel();
+            syncCancel();
         }
     };
 }

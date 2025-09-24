@@ -1,0 +1,3 @@
+import type { UseAsyncToSyncSignalsParameters, UseAsyncToSyncSignalsReturnType } from "./signals-react.js";
+export declare function useAsyncToSyncSignals<ReturnType, AsyncArgs extends any[], SyncArgs extends any[] = AsyncArgs>({ asyncInput, capture, debounce, throttle, onFinally, onInvoke, onInvoked, onReject, onResolve }: UseAsyncToSyncSignalsParameters<ReturnType, AsyncArgs, SyncArgs>): UseAsyncToSyncSignalsReturnType<ReturnType>;
+//# sourceMappingURL=signals-preact.d.ts.map
