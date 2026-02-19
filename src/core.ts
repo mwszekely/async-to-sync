@@ -1,3 +1,4 @@
+import type { NullableNumberOrFunctionThatReturnsANullableNumber } from "./util/throttle-debounce-helpers.js";
 import { throttleDebounce } from "./util/throttle-debounce.js";
 
 export type CaptureFunctionType<AP extends unknown[], SP extends unknown[] = AP> = (...args: SP) => AP;
@@ -121,14 +122,14 @@ export interface AsyncToSyncParameters<ReturnType, AsyncArgs extends any[], Sync
      * 
      * If a positive integer, applies *before* waiting for any prior async handlers to finish.
      */
-    throttle?: number | null | undefined;
+    throttle?: NullableNumberOrFunctionThatReturnsANullableNumber;
 
     /**
      * Similar to Lodash's `debounce` function.
      * 
      * If a positive integer, it applies *before* waiting for any prior async handlers to finish.
      */
-    debounce?: number | null | undefined;
+    debounce?: NullableNumberOrFunctionThatReturnsANullableNumber;
 
     /**
      * When the handler is about to run, this is called with `null`.

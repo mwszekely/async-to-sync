@@ -6,7 +6,7 @@
   "source": "src/index.ts",
   "module": "/dist/index.js",
   "types": "/dist/index.d.ts",
-  "packageManager": "pnpm@10.15.1",
+  "packageManager": "pnpm@10.30.0+sha512.2b5753de015d480eeb88f5b5b61e0051f05b4301808a82ec8b840c9d2adf7748eb352c83f5c1593ca703ff1017295bc3fdd3119abb9686efc96b9fcb18200937",
   "sideEffects": false,
   "exports": {
     ".": {
@@ -66,13 +66,13 @@
     "@playwright/test": "^1.55.1",
     "@types/node": "^24.5.2",
     "@types/react": "^19.1.13",
-    "typescript": "^5.0.3"
+    "typescript": "^5.9.3"
   },
   "peerDependencies": {
     "@preact/signals": "^2.3.1",
+    "preact": "^10.27.2",
     "react": "^19.1.1",
-    "solid-js": "^1.9.9",
-    "preact": "^10.27.2"
+    "solid-js": "^1.9.9"
   },
   "directories": {
     "test": "tests"
